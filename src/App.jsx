@@ -248,6 +248,11 @@ export default function App() {
   var popupTriggerRef = useRef('auto');
   var pendingScrollCfi = useRef(null);
 
+  // Clear the toast timeout on unmount to prevent a setState-on-unmounted-component warning.
+  useEffect(function() {
+    return function() { clearTimeout(showToastTimeoutRef.current); };
+  }, []);
+
   useEffect(function() { highlightsRef.current = highlights; }, [highlights]);
   useEffect(function() { popupTriggerRef.current = popupTrigger; }, [popupTrigger]);
   useEffect(function() {
@@ -392,7 +397,9 @@ export default function App() {
     var savedLoc = storage.get('nr_location_' + bookKey, null);
     setLocation(savedLoc);
     upsertLibrary(bookKey, bookKey, storage.get('nr_progress_' + bookKey, 0));
-    setBookPath(bookKey, savedLoc);
+    // Pass null for chapter index — we don't know the spine index yet at load time.
+    // The URL will be updated correctly once onLocationChange fires with a real index.
+    setBookPath(bookKey, null);
     showToastMsg('Loaded: ' + file.name);
   }
 
@@ -870,7 +877,6 @@ export default function App() {
         if (spineIdx > 0) {
           var prev = spine.get(spineIdx - 1);
           if (prev && prev.href) {
-            var cfi = prev.cfiFromElement ? prev.cfiFromElement() : prev.href;
             goToLocation(prev.href);
           }
         }
@@ -1148,10 +1154,16 @@ export default function App() {
     goToLocation(cfi);
   }
 
+  // Track the current search generation so stale results from a previous search
+  // are discarded if the user starts a new one before the old one completes.
+  var searchGenRef = useRef(0);
+
   function doSearch(query) {
     if (!query.trim() || !renditionRef.current) return;
     setSearching(true);
+    setSearchResults([]);
 
+    var gen = ++searchGenRef.current;
     var rendition = renditionRef.current;
     var book = rendition ? rendition.book : null;
     if (!book) { setSearching(false); return; }
@@ -1160,6 +1172,9 @@ export default function App() {
     var spine = book.spine;
 
     function processSection(i) {
+      // Abort if a newer search has started
+      if (gen !== searchGenRef.current) return;
+
       if (i >= spine.length) {
         setSearchResults(results);
         setSearching(false);
@@ -1173,6 +1188,7 @@ export default function App() {
       }
 
       section.load(book.load.bind(book)).then(function(doc) {
+        if (gen !== searchGenRef.current) return;
         if (!doc) {
           processSection(i + 1);
           return;
@@ -1194,6 +1210,7 @@ export default function App() {
         section.unload();
         processSection(i + 1);
       }).catch(function() {
+        if (gen !== searchGenRef.current) return;
         processSection(i + 1);
       });
     }
@@ -1250,7 +1267,16 @@ export default function App() {
     var rend = renditionRef.current;
     if (!rend || !isLoaded) return;
     var savedScrollTop = 0;
-    var savedLocation = location;
+    // Read location from the rendition itself (source of truth) rather than
+    // from the `location` state variable to avoid a stale-closure bug — the
+    // state value captured here would be whatever it was when the effect last
+    // ran ([rightSidebar, isLoaded] deps don't include `location`).
+    var currentCfi = null;
+    try {
+      var loc = rend.currentLocation ? rend.currentLocation() : null;
+      if (loc && !loc.then && loc.start) currentCfi = loc.start.cfi;
+      else if (rend.location && rend.location.start) currentCfi = rend.location.start.cfi;
+    } catch(e) {}
     if (scrollMode) {
       var sd = document.querySelector('.reader-content.scroll-mode');
       if (sd) savedScrollTop = sd.scrollTop;
@@ -1259,10 +1285,10 @@ export default function App() {
     if (scrollMode) {
       var sd2 = document.querySelector('.reader-content.scroll-mode');
       if (sd2 && savedScrollTop > 0) sd2.scrollTop = savedScrollTop;
-    } else if (savedLocation) {
-      try { rend.display(savedLocation); } catch(e) {}
+    } else if (currentCfi) {
+      try { rend.display(currentCfi); } catch(e) {}
     }
-  }, [rightSidebar, isLoaded]);
+  }, [rightSidebar, isLoaded, scrollMode]);
 
   useEffect(function() {
     if (!isLoaded || !renditionRef.current) return;

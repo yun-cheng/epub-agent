@@ -4,6 +4,15 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export default function SearchPanel({ onSearch, results, searching, onJump }) {
   var [query, setQuery] = useState('');
   var [hasSearched, setHasSearched] = useState(false);
@@ -44,9 +53,13 @@ export default function SearchPanel({ onSearch, results, searching, onJump }) {
               {results.length} result{results.length !== 1 ? 's' : ''}
             </div>
             {results.map(function(r, i) {
-              var escaped = escapeRegex(query);
-              var highlighted = r.excerpt.replace(
-                new RegExp('(' + escaped + ')', 'gi'),
+              // HTML-escape both the excerpt and the query term before building
+              // the regex-highlighted HTML, so user-supplied text cannot inject
+              // markup via dangerouslySetInnerHTML.
+              var safeExcerpt = escapeHtml(r.excerpt || '');
+              var safeQuery = escapeRegex(escapeHtml(query));
+              var highlighted = safeExcerpt.replace(
+                new RegExp('(' + safeQuery + ')', 'gi'),
                 '<em>$1</em>'
               );
               return (

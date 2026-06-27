@@ -3,7 +3,11 @@ export default function LibraryPage({ library, onOpenFile, onRemove, onDragOver,
 
   function formatDate(iso) {
     if (!iso) return '';
-    return new Date(iso).toLocaleDateString();
+    try {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleDateString();
+    } catch(e) { return ''; }
   }
 
   function getInitials(title) {

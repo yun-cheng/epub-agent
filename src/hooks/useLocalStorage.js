@@ -12,13 +12,17 @@ export function useLocalStorage(key, initialValue) {
 
   const setValue = useCallback(
     (value) => {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      try {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
-      } catch { /* quota exceeded */ }
+      // Use the functional form of setStoredValue so we don't need `storedValue`
+      // in deps (which would create a new `setValue` reference on every render).
+      setStoredValue((prev) => {
+        const valueToStore = value instanceof Function ? value(prev) : value;
+        try {
+          window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        } catch { /* quota exceeded */ }
+        return valueToStore;
+      });
     },
-    [key, storedValue]
+    [key]
   );
 
   return [storedValue, setValue];
