@@ -10,6 +10,8 @@ import SelectionPopup from './components/SelectionPopup';
 import NoteEditor from './components/NoteEditor';
 import BottomBar from './components/BottomBar';
 import LibraryPage from './components/LibraryPage';
+import { exportAs } from './utils/exportHighlights';
+
 // --- IndexedDB helpers for persisting epub blobs across sessions ---
 var _IDB_DB = null;
 function getEpubDb() {
@@ -162,6 +164,9 @@ export default function App() {
   var _hrefToSpineIdx = useState({});
   var hrefToSpineIdx = _hrefToSpineIdx[0];
   var setHrefToSpineIdx = _hrefToSpineIdx[1];
+  var _showExportMenu = useState(false);
+  var showExportMenu = _showExportMenu[0];
+  var setShowExportMenu = _showExportMenu[1];
 
 
   var _leftSidebar = useLocalStorage('nr_leftSidebar', 'none');
@@ -235,6 +240,7 @@ export default function App() {
   var showToastTimeoutRef = useRef(null);
   var hlClickRef = useRef(null);
   var popupTriggerRef = useRef('auto');
+  var pendingScrollCfi = useRef(null);
 
   useEffect(function() { highlightsRef.current = highlights; }, [highlights]);
   useEffect(function() { popupTriggerRef.current = popupTrigger; }, [popupTrigger]);
@@ -625,6 +631,30 @@ export default function App() {
       // Re-register on chapter navigation — new chapter = new contentDoc
       setTimeout(registerSelectionListener, 100);
       setTimeout(refreshPagination, 50);
+      // If a highlight jump was pending, scroll to it now that the chapter is rendered
+      if (pendingScrollCfi.current) {
+        var targetCfi = pendingScrollCfi.current;
+        pendingScrollCfi.current = null;
+        setTimeout(function() {
+          try {
+            var rend = renditionRef.current;
+            var contents = rend && rend.getContents && rend.getContents();
+            if (!contents || !contents.length) return;
+            var range = contents[0].range(targetCfi);
+            if (!range || !range.startContainer) return;
+            var el = range.startContainer.nodeType === 1
+              ? range.startContainer
+              : range.startContainer.parentElement;
+            if (!el) return;
+            var sc = document.querySelector('.reader-content.scroll-mode');
+            if (!sc) return;
+            var elRect = el.getBoundingClientRect();
+            var scRect = sc.getBoundingClientRect();
+            var targetScrollTop = sc.scrollTop + (elRect.top - scRect.top) - sc.clientHeight / 3;
+            sc.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+          } catch(e) {}
+        }, 100);
+      }
       var hls = highlightsRef.current;
       for (var i = 0; i < hls.length; i++) {
         var hl = hls[i];
@@ -967,26 +997,9 @@ export default function App() {
       }
     } catch(e) {}
     goToLocation(displayCfi);
+    // In scroll mode: set a pending CFI; the relocated handler will scroll once the chapter is ready.
     if (scrollMode) {
-      setTimeout(function() {
-        try {
-          var rend = renditionRef.current;
-          var contents = rend && rend.getContents && rend.getContents();
-          if (!contents || !contents.length) return;
-          var range = contents[0].range(displayCfi);
-          if (!range || !range.startContainer) return;
-          var el = range.startContainer.nodeType === 1
-            ? range.startContainer
-            : range.startContainer.parentElement;
-          if (!el) return;
-          var sc = document.querySelector('.reader-content.scroll-mode');
-          if (!sc) return;
-          var elRect = el.getBoundingClientRect();
-          var scRect = sc.getBoundingClientRect();
-          var targetScrollTop = sc.scrollTop + (elRect.top - scRect.top) - sc.clientHeight / 3;
-          sc.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
-        } catch(e) {}
-      }, 300);
+      pendingScrollCfi.current = displayCfi;
     }
   }
 
@@ -1139,6 +1152,7 @@ export default function App() {
     var rend = renditionRef.current;
     if (!rend || !cfi) return;
     try {
+      try { rend.annotations.remove(cfi, 'highlight'); } catch(e) {}
       rend.annotations.highlight(cfi, {}, function() {}, 'search-temp-hl', {
         fill: '#ffff00',
         'fill-opacity': '0.5',
@@ -1498,9 +1512,24 @@ export default function App() {
       <div className="sidebar right">
         <div className="sidebar-header">
           <h3>{header}</h3>
-          <button className="btn-icon" onClick={function() { if (rightSidebar === 'search') { setSearchResults([]); setSearching(false); } setRightSidebar('none'); }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {rightSidebar === 'highlights' && (
+              <div style={{ position: 'relative' }}>
+                <button className="btn btn-sm" title="Export highlights" onClick={function() { setShowExportMenu(function(s) { return !s; }); }}>
+                  Export
+                </button>
+                {showExportMenu && (
+                  <div className="export-menu" style={{ right: 0, left: 'auto' }}>
+                    <button className="export-menu-item" onClick={function() { exportAs('markdown', highlights, bookName); setShowExportMenu(false); }}>Markdown (.md)</button>
+                    <button className="export-menu-item" onClick={function() { exportAs('json', highlights, bookName); setShowExportMenu(false); }}>JSON (.json)</button>
+                  </div>
+                )}
+              </div>
+            )}
+            <button className="btn-icon" onClick={function() { if (rightSidebar === 'search') { setSearchResults([]); setSearching(false); } setRightSidebar('none'); setShowExportMenu(false); }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
+          </div>
         </div>
         {content}
       </div>

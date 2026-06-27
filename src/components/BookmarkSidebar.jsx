@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { EpubCFI } from 'epubjs';
 
 function formatDateTime(iso) {
   if (!iso) return '';
@@ -12,6 +13,15 @@ function formatDateTime(iso) {
 
 export default function BookmarkSidebar({ bookmarks, onJump, onDelete }) {
   const [sortMode, setSortMode] = useState('position');
+  const [sortAsc, setSortAsc] = useState({ position: true, time: true });
+
+  function handleSort(mode) {
+    if (sortMode === mode) {
+      setSortAsc(prev => ({ ...prev, [mode]: !prev[mode] }));
+    } else {
+      setSortMode(mode);
+    }
+  }
 
   if (!bookmarks || bookmarks.length === 0) {
     return (
@@ -23,31 +33,36 @@ export default function BookmarkSidebar({ bookmarks, onJump, onDelete }) {
     );
   }
 
+  const cfiCompare = new EpubCFI();
+  const asc = sortAsc[sortMode];
   const sorted = [...bookmarks].sort((a, b) => {
-    if (sortMode === 'time') return new Date(a.createdAt) - new Date(b.createdAt);
-    if (a.cfi < b.cfi) return -1;
-    if (a.cfi > b.cfi) return 1;
-    return 0;
+    let cmp;
+    if (sortMode === 'time') cmp = new Date(a.createdAt) - new Date(b.createdAt);
+    else { try { cmp = cfiCompare.compare(a.cfi, b.cfi); } catch (e) { cmp = 0; } }
+    return asc ? cmp : -cmp;
   });
 
   return (
     <div className="sidebar-content">
       <div className="highlight-export-bar">
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button
-            className={'btn btn-sm' + (sortMode === 'position' ? ' active' : '')}
-            title="Sort by position in book"
-            onClick={() => setSortMode('position')}
-          >
-            Book order
-          </button>
-          <button
-            className={'btn btn-sm' + (sortMode === 'time' ? ' active' : '')}
-            title="Sort by time created"
-            onClick={() => setSortMode('time')}
-          >
-            By time
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Sort:</span>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button
+              className={'btn btn-sm' + (sortMode === 'position' ? ' active' : '')}
+              title="Sort by position in book"
+              onClick={() => handleSort('position')}
+            >
+              Book order {sortMode === 'position' ? (sortAsc.position ? '↑' : '↓') : ''}
+            </button>
+            <button
+              className={'btn btn-sm' + (sortMode === 'time' ? ' active' : '')}
+              title="Sort by date added"
+              onClick={() => handleSort('time')}
+            >
+              Date added {sortMode === 'time' ? (sortAsc.time ? '↑' : '↓') : ''}
+            </button>
+          </div>
         </div>
       </div>
       {sorted.map((bm) => (
