@@ -167,6 +167,12 @@ export default function App() {
   var _showExportMenu = useState(false);
   var showExportMenu = _showExportMenu[0];
   var setShowExportMenu = _showExportMenu[1];
+  var _laserMode = useState(false);
+  var laserMode = _laserMode[0];
+  var setLaserMode = _laserMode[1];
+  var _laserPos = useState({ x: 0, y: 0 });
+  var laserPos = _laserPos[0];
+  var setLaserPos = _laserPos[1];
 
 
   var _leftSidebar = useLocalStorage('nr_leftSidebar', 'none');
@@ -244,6 +250,53 @@ export default function App() {
 
   useEffect(function() { highlightsRef.current = highlights; }, [highlights]);
   useEffect(function() { popupTriggerRef.current = popupTrigger; }, [popupTrigger]);
+  useEffect(function() {
+    if (!laserMode) return;
+    function onMouseMove(e) { setLaserPos({ x: e.clientX, y: e.clientY }); }
+    window.addEventListener('mousemove', onMouseMove);
+
+    var iframeListeners = [];
+    function attachIframeListener() {
+      var iframes = document.querySelectorAll('.epub-container iframe');
+      iframes.forEach(function(iframe) {
+        if (iframe._laserAttached) return;
+        try {
+          var iframeWin = iframe.contentWindow;
+          var iframeDoc = iframe.contentDocument;
+          if (!iframeWin || !iframeDoc) return;
+          function onIframeMouseMove(e) {
+            var rect = iframe.getBoundingClientRect();
+            setLaserPos({ x: rect.left + e.clientX, y: rect.top + e.clientY });
+          }
+          iframeWin.addEventListener('mousemove', onIframeMouseMove);
+          var style = iframeDoc.createElement('style');
+          style.id = 'laser-cursor';
+          style.textContent = '* { cursor: none !important; user-select: none !important; }';
+          iframeDoc.head.appendChild(style);
+          iframe._laserAttached = true;
+          iframeListeners.push({ win: iframeWin, fn: onIframeMouseMove, doc: iframeDoc });
+        } catch(err) {}
+      });
+    }
+
+    attachIframeListener();
+    var interval = setInterval(attachIframeListener, 500);
+
+    return function() {
+      window.removeEventListener('mousemove', onMouseMove);
+      clearInterval(interval);
+      iframeListeners.forEach(function(item) {
+        try { item.win.removeEventListener('mousemove', item.fn); } catch(e) {}
+        try {
+          var s = item.doc && item.doc.getElementById('laser-cursor');
+          if (s) s.remove();
+        } catch(e) {}
+      });
+      document.querySelectorAll('.epub-container iframe').forEach(function(f) {
+        delete f._laserAttached;
+      });
+    };
+  }, [laserMode]);
   // On mount: restore from hash (deep link to book+chapter)
   useEffect(function() {
     var parsed = parseAppPath();
@@ -1330,6 +1383,9 @@ export default function App() {
           {bookUrl ? <button className={'btn-icon' + (rightSidebar === 'search' ? ' active' : '')} title="Search" onClick={function() { toggleRightSidebar('search'); }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
           </button> : null}
+          <button className={'btn-icon' + (laserMode ? ' active' : '')} onClick={function() { setLaserMode(function(s) { return !s; }); }} title={laserMode ? 'Exit Laser Pointer' : 'Laser Pointer'}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.07" y2="19.07"/><line x1="4.93" y1="19.07" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.07" y2="4.93"/></svg>
+          </button>
           <button className={'btn-icon' + (scrollMode ? ' active' : '')} onClick={function() { setScrollMode(function(s) { return !s; }); }} title={scrollMode ? 'Switch to Paginated' : 'Switch to Scroll'}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
           </button>
@@ -1537,7 +1593,22 @@ export default function App() {
   }
 
   return (
-    <div className="app-container">
+    <div className="app-container" style={laserMode ? { cursor: 'none' } : undefined} data-laser={laserMode ? 'true' : undefined}>
+      {laserMode && (
+        <div style={{
+          position: 'fixed',
+          left: laserPos.x,
+          top: laserPos.y,
+          width: 12,
+          height: 12,
+          borderRadius: '50%',
+          background: '#e8000d',
+          boxShadow: '0 0 0 2px rgba(232,0,13,0.35), 0 0 8px 3px rgba(232,0,13,0.4)',
+          transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none',
+          zIndex: 99999,
+        }} />
+      )}
       {renderToolbar()}
       <div className="main-area">
         {(leftSidebar === 'toc' || rightSidebar !== 'none') && bookUrl
