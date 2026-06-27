@@ -1,4 +1,4 @@
-export default function TocSidebar({ toc, onNavigate, currentSpineHref }) {
+export default function TocSidebar({ toc, onNavigate, currentSpineHref, hrefToSpineIdx }) {
   if (!toc || toc.length === 0) {
     return (
       <div className="sidebar-content">
@@ -14,7 +14,6 @@ export default function TocSidebar({ toc, onNavigate, currentSpineHref }) {
     if (!currentSpineHref || !item.href) return false;
     var itemBase = item.href.split('#')[0];
     var spineBase = currentSpineHref.split('#')[0];
-    // Match if one ends with the other (handles different path prefix depths)
     return itemBase === spineBase ||
       spineBase.endsWith('/' + itemBase) ||
       itemBase.endsWith('/' + spineBase);
@@ -33,7 +32,7 @@ export default function TocSidebar({ toc, onNavigate, currentSpineHref }) {
             fontWeight: depth === 0 ? 500 : 400,
           }}
         >
-          <span className="chapter-num">{depth === 0 ? index + 1 : ''}</span>
+          <span className="chapter-num">{depth === 0 ? (hrefToSpineIdx && item.href && hrefToSpineIdx[item.href.split('#')[0]] != null ? hrefToSpineIdx[item.href.split('#')[0]] + 1 : index + 1) : ''}</span>
           <span>{item.label}</span>
         </button>
         {item.subitems && item.subitems.length > 0 && renderTocItems(item.subitems, depth + 1)}

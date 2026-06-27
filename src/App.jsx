@@ -61,13 +61,15 @@ function parseAppPath() {
   if (m) {
     var params = new URLSearchParams(window.location.search);
     var ch = params.get('chapter');
-    return { view: 'book', bookKey: decodeURIComponent(m[1]), chapter: ch != null ? parseInt(ch, 10) : null };
+    // chapter in URL is 1-based; convert to 0-based spine index internally
+    return { view: 'book', bookKey: decodeURIComponent(m[1]), chapter: ch != null ? parseInt(ch, 10) - 1 : null };
   }
   return { view: 'library' };
 }
 function setBookPath(bookKey, chapterIndex) {
   var p = '/book/' + encodeURIComponent(bookKey);
-  var q = chapterIndex != null ? '?chapter=' + chapterIndex : '';
+  // URL uses 1-based chapter number to match TOC display
+  var q = chapterIndex != null ? '?chapter=' + (chapterIndex + 1) : '';
   var currentMatch = window.location.pathname.match(/^\/book\/([^?/]+)/);
   var currentKey = currentMatch ? decodeURIComponent(currentMatch[1]) : null;
   if (currentKey === bookKey) {
@@ -157,6 +159,9 @@ export default function App() {
   var _chapterInputVal = useState('');
   var chapterInputVal = _chapterInputVal[0];
   var setChapterInputVal = _chapterInputVal[1];
+  var _hrefToSpineIdx = useState({});
+  var hrefToSpineIdx = _hrefToSpineIdx[0];
+  var setHrefToSpineIdx = _hrefToSpineIdx[1];
 
 
   var _leftSidebar = useLocalStorage('nr_leftSidebar', 'none');
@@ -1215,6 +1220,19 @@ export default function App() {
     if (tocItems && tocItems.length > 0) {
       setToc(tocItems);
       setIsLoaded(true);
+      // Build href → spine index map for TOC numbering
+      try {
+        var rend = renditionRef.current;
+        if (rend && rend.book && rend.book.spine && rend.book.spine.items) {
+          var map = {};
+          rend.book.spine.items.forEach(function(item) {
+            if (item.href != null && item.index != null) {
+              map[item.href.split('#')[0]] = item.index;
+            }
+          });
+          setHrefToSpineIdx(map);
+        }
+      } catch(e) {}
     }
   }, []);
 
@@ -1394,7 +1412,7 @@ export default function App() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         </div>
-        <TocSidebar toc={toc} onNavigate={goToLocation} currentSpineHref={currentSpineHref} />
+        <TocSidebar toc={toc} onNavigate={goToLocation} currentSpineHref={currentSpineHref} hrefToSpineIdx={hrefToSpineIdx} />
       </div>
     );
   }
