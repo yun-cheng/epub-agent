@@ -53,14 +53,14 @@ export default function BookmarkSidebar({ bookmarks, onJump, onDelete }) {
               title="Sort by position in book"
               onClick={() => handleSort('position')}
             >
-              Book order {sortMode === 'position' ? (sortAsc.position ? '↑' : '↓') : ''}
+              Book {sortMode === 'position' ? (sortAsc.position ? '↑' : '↓') : ''}
             </button>
             <button
               className={'btn btn-sm' + (sortMode === 'time' ? ' active' : '')}
               title="Sort by date added"
               onClick={() => handleSort('time')}
             >
-              Date added {sortMode === 'time' ? (sortAsc.time ? '↑' : '↓') : ''}
+              Created {sortMode === 'time' ? (sortAsc.time ? '↑' : '↓') : ''}
             </button>
           </div>
         </div>
