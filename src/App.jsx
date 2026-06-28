@@ -400,10 +400,14 @@ export default function App() {
     function attachFootnoteHandlers() {
       var iframes = document.querySelectorAll('.epub-container iframe');
       iframes.forEach(function(iframe) {
-        if (iframe._footnoteAttached) return;
         try {
           var doc = iframe.contentDocument;
           if (!doc || !doc.body) return;
+          if (iframe._footnoteAttachedDoc === doc) return;
+          // Detach from old doc if any
+          if (iframe._footnoteAttachedFn && iframe._footnoteAttachedDoc) {
+            try { iframe._footnoteAttachedDoc.removeEventListener('click', iframe._footnoteAttachedFn, true); } catch (e) {}
+          }
           function onLinkClick(e) {
             var anchor = e.target.closest('a');
             if (!anchor || !anchor.href) return;
@@ -450,7 +454,8 @@ export default function App() {
             }).catch(function() { goToLocation(href); });
           }
           doc.addEventListener('click', onLinkClick, true);
-          iframe._footnoteAttached = true;
+          iframe._footnoteAttachedDoc = doc;
+          iframe._footnoteAttachedFn = onLinkClick;
           attached.push({ doc: doc, fn: onLinkClick, iframe: iframe });
         } catch (e) {}
       });
@@ -461,7 +466,8 @@ export default function App() {
       clearInterval(interval);
       attached.forEach(function(item) {
         try { item.doc.removeEventListener('click', item.fn, true); } catch (e) {}
-        delete item.iframe._footnoteAttached;
+        delete item.iframe._footnoteAttachedDoc;
+        delete item.iframe._footnoteAttachedFn;
       });
     };
   }, []);
@@ -920,6 +926,10 @@ export default function App() {
         'img { opacity: 0.8; }',
         'body, p, div, li { line-height: ' + lineSpacing + ' !important; }',
         '* { font-size: ' + fontSize + 'px !important; font-family: ' + fontFamily + ' !important; }',
+        // Footnote / noteref links
+        'a[epub\\:type="noteref"], a.noteref, sup a, a[href^="#fn"], a[href^="#note"], a[href^="#endnote"] {',
+        '  color: #f0a500 !important; font-size: 0.75em !important; vertical-align: super;',
+        '  border-bottom: 1px dotted #f0a500 !important; cursor: pointer !important; }',
       ].join('\n');
       doc.head.appendChild(style);
     } catch (e) {
