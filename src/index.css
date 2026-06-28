@@ -529,10 +529,10 @@ html, body, #root {
 .highlight-item {
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
-  cursor: pointer;
+  cursor: pointer !important;
   transition: background 0.15s;
 }
-.highlight-item:hover { background: var(--bg-hover); }
+.highlight-item:hover { background: var(--bg-hover); cursor: pointer !important; }
 .highlight-text {
   font-size: 13px;
   line-height: 1.4;
