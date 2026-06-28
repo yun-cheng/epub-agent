@@ -1134,7 +1134,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: zoom-out;
+  cursor: default;
   overflow: hidden;
   touch-action: none;
 }
@@ -1144,9 +1144,8 @@ html, body, #root {
   object-fit: contain;
   border-radius: 4px;
   transform-origin: center center;
-  cursor: default;
+  cursor: grab;
   user-select: none;
-  transition: transform 0.05s ease-out;
 }
 .lightbox-close {
   position: fixed;

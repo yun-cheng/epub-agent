@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useGesture } from '@use-gesture/react';
 import { ReactReader } from 'react-reader';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
@@ -176,10 +177,11 @@ export default function App() {
   var _lightboxSrc = useState(null);
   var lightboxSrc = _lightboxSrc[0];
   var setLightboxSrc = _lightboxSrc[1];
-  var _lightboxZoom = useState(1);
-  var lightboxZoom = _lightboxZoom[0];
-  var setLightboxZoom = _lightboxZoom[1];
-  var lightboxPinchRef = useRef(null);
+  var _lightboxTransform = useState({ zoom: 1, tx: 0, ty: 0 });
+  var lightboxTransform = _lightboxTransform[0];
+  var setLightboxTransform = _lightboxTransform[1];
+  var lightboxImgRef = useRef(null);
+  var lightboxDraggedRef = useRef(false);
   var _imgMenu = useState(null); // { x, y, img }
   var imgMenu = _imgMenu[0];
   var setImgMenu = _imgMenu[1];
@@ -359,13 +361,13 @@ export default function App() {
           function onImgClick(e) {
             if (e.target.tagName === 'IMG') {
               setLightboxSrc(e.target.src);
-              setLightboxZoom(1);
+              setLightboxTransform({ zoom: 1, tx: 0, ty: 0 });
             }
           }
           // cursor: pointer on images
           var style = doc.createElement('style');
           style.id = 'lightbox-cursor';
-          style.textContent = 'img { cursor: zoom-in !important; }';
+          style.textContent = 'img { cursor: pointer !important; }';
           doc.head.appendChild(style);
           doc.addEventListener('click', onImgClick);
           iframe._imgLightboxAttached = true;
@@ -1007,6 +1009,34 @@ export default function App() {
     window.addEventListener('keydown', onKey);
     return function() { window.removeEventListener('keydown', onKey); };
   }, []);
+
+  // All lightbox gestures on the image — backdrop stays untouched
+  useGesture({
+    onWheel: function(state) {
+      var origin = [state.event.clientX - window.innerWidth / 2, state.event.clientY - window.innerHeight / 2];
+      var factor = state.delta[1] < 0 ? 1.1 : 0.9;
+      setLightboxTransform(function(t) {
+        var newZoom = Math.min(10, Math.max(0.2, t.zoom * factor));
+        var ratio = newZoom / t.zoom;
+        return { zoom: newZoom, tx: origin[0] - (origin[0] - t.tx) * ratio, ty: origin[1] - (origin[1] - t.ty) * ratio };
+      });
+    },
+    onPinch: function(state) {
+      var origin = [state.origin[0] - window.innerWidth / 2, state.origin[1] - window.innerHeight / 2];
+      var factor = state.delta[0];
+      setLightboxTransform(function(t) {
+        var newZoom = Math.min(10, Math.max(0.2, t.zoom * factor));
+        var ratio = newZoom / t.zoom;
+        return { zoom: newZoom, tx: origin[0] - (origin[0] - t.tx) * ratio, ty: origin[1] - (origin[1] - t.ty) * ratio };
+      });
+    },
+    onDrag: function(state) {
+      if (state.delta[0] !== 0 || state.delta[1] !== 0) lightboxDraggedRef.current = true;
+      setLightboxTransform(function(t) {
+        return { zoom: t.zoom, tx: t.tx + state.delta[0], ty: t.ty + state.delta[1] };
+      });
+    },
+  }, { target: lightboxImgRef, eventOptions: { passive: false } });
 
   function handleHighlightClick(cfi, id, e) {
     // Don't override if user currently has text selected
@@ -1770,29 +1800,9 @@ export default function App() {
       {lightboxSrc && (
         <div
           className="lightbox-backdrop"
-          onClick={function() { setLightboxSrc(null); }}
-          onWheel={function(e) {
-            e.preventDefault();
-            setLightboxZoom(function(z) { return Math.min(10, Math.max(0.2, z * (e.deltaY < 0 ? 1.1 : 0.9))); });
-          }}
-          onTouchStart={function(e) {
-            if (e.touches.length === 2) {
-              lightboxPinchRef.current = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-              );
-            }
-          }}
-          onTouchMove={function(e) {
-            if (e.touches.length === 2 && lightboxPinchRef.current != null) {
-              var dist = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-              );
-              var ratio = dist / lightboxPinchRef.current;
-              lightboxPinchRef.current = dist;
-              setLightboxZoom(function(z) { return Math.min(10, Math.max(0.2, z * ratio)); });
-            }
+          onClick={function() {
+            if (lightboxDraggedRef.current) { lightboxDraggedRef.current = false; return; }
+            setLightboxSrc(null);
           }}
         >
           <button
@@ -1800,10 +1810,12 @@ export default function App() {
             onClick={function(e) { e.stopPropagation(); setLightboxSrc(null); }}
           >✕</button>
           <img
+            ref={lightboxImgRef}
             src={lightboxSrc}
             className="lightbox-img"
-            style={{ transform: 'scale(' + lightboxZoom + ')' }}
+            style={{ transform: 'translate(' + lightboxTransform.tx + 'px, ' + lightboxTransform.ty + 'px) scale(' + lightboxTransform.zoom + ')' }}
             onClick={function(e) { e.stopPropagation(); }}
+            draggable={false}
             alt=""
           />
         </div>
