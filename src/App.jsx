@@ -856,13 +856,13 @@ export default function App() {
               if (h > 200) iframe.style.height = (h + 80) + 'px';
             } catch (e) {}
           }
+          // Measure at multiple points: CSS is applied async so the first call
+          // often measures before padding-bottom is in the layout; the retries
+          // catch the correct value after reflow and after fonts finish loading.
           updateIframeHeight();
-          // Re-measure after fonts load (critical for CJK fonts that affect line-height)
-          if (win.document && win.document.fonts && win.document.fonts.ready) {
-            win.document.fonts.ready.then(function() {
-              updateIframeHeight();
-            });
-          }
+          setTimeout(updateIframeHeight, 100);
+          setTimeout(updateIframeHeight, 400);
+          setTimeout(updateIframeHeight, 1000);
         }
       } catch (e) {}
     }
