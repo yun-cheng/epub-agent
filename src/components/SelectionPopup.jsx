@@ -85,19 +85,16 @@ export default function SelectionPopup({ selection, onHighlight, onNote, onDelet
           <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
             <path d="M13.5.5l2 2L5 13H3v-2L13.5.5z"/>
           </svg>
-          Note
         </button>
         <button className="popup-btn copy" onClick={handleCopy} title="Copy">
           <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
             <path d="M4 2h7a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm0 1v9h7V3H4zM2 4v9h8v1H2a1 1 0 0 1-1-1V4h1z"/>
           </svg>
-          Copy
         </button>
         <button className="popup-btn google" onClick={handleGoogleSearch} title="Search Google">
           <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
             <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/>
           </svg>
-          Google
         </button>
         {isHighlight ? (
           <button className="popup-btn delete" onClick={onDelete} title="Delete highlight" style={{ color: '#e05' }}>
@@ -105,7 +102,6 @@ export default function SelectionPopup({ selection, onHighlight, onNote, onDelet
               <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
               <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
             </svg>
-            Delete
           </button>
         ) : null}
       </div>
