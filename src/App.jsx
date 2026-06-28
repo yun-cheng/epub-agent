@@ -242,6 +242,9 @@ export default function App() {
   var _noteCfi = useState(null);
   var noteCfi = _noteCfi[0];
   var setNoteCfi = _noteCfi[1];
+  var _noteSelectionText = useState('');
+  var noteSelectionText = _noteSelectionText[0];
+  var setNoteSelectionText = _noteSelectionText[1];
 
   var _searchResults = useState([]);
   var searchResults = _searchResults[0];
@@ -1184,13 +1187,16 @@ export default function App() {
   function openNoteEditor() {
     if (!selection) return;
     setNoteCfi(selection.cfi);
+    setNoteSelectionText(selection.text || '');
     setShowNoteEditor(true);
     setSelection(null);
   }
 
-  function saveNote(text) {
+  function saveNote(text, color) {
     if (!noteCfi) return;
     var cfi = noteCfi;
+    var chosenColor = color || 'yellow';
+    var chosenHex = HIGHLIGHT_COLORS[chosenColor] || HIGHLIGHT_COLORS.yellow;
     var found = false;
     for (var i = 0; i < highlights.length; i++) {
       if (highlights[i].cfi === cfi) { found = true; break; }
@@ -1198,19 +1204,20 @@ export default function App() {
     if (found) {
       setHighlights(function(prev) {
         return prev.map(function(h) {
-          if (h.cfi === cfi) { return Object.assign({}, h, { note: text }); }
+          if (h.cfi === cfi) return Object.assign({}, h, { note: text, color: chosenColor, colorHex: chosenHex });
           return h;
         });
       });
     } else {
       var newNoteId = Date.now().toString();
+      var selText = noteSelectionText;
       setHighlights(function(prev) {
         return prev.concat([{
           id: newNoteId,
           cfi: cfi,
-          text: '',
-          color: 'yellow',
-          colorHex: HIGHLIGHT_COLORS.yellow,
+          text: selText,
+          color: chosenColor,
+          colorHex: chosenHex,
           chapter: getChapterName(cfi),
           note: text,
           createdAt: new Date().toISOString(),
@@ -1218,14 +1225,14 @@ export default function App() {
       });
       if (renditionRef.current) {
         try {
-          (function(c, i) {
+          (function(c, i, hex) {
             renditionRef.current.annotations.highlight(
               c, { cfi: c, id: i },
               function(e) { if (hlClickRef.current) hlClickRef.current(c, i, e); },
               'epubjs-hl',
-              { fill: HIGHLIGHT_COLORS.yellow, 'fill-opacity': '0.3' }
+              { fill: hex, 'fill-opacity': '0.3' }
             );
-          })(cfi, newNoteId);
+          })(cfi, newNoteId, chosenHex);
         } catch (e) {
           console.warn('Highlight apply failed:', e);
         }
@@ -1233,6 +1240,7 @@ export default function App() {
     }
     setShowNoteEditor(false);
     setNoteCfi(null);
+    setNoteSelectionText('');
     showToastMsg('Note saved');
   }
 
@@ -1843,6 +1851,7 @@ export default function App() {
               <NoteEditor
                 cfi={noteCfi}
                 highlights={highlights}
+                selectionText={noteSelectionText}
                 onSave={saveNote}
                 onClose={function() { setShowNoteEditor(false); setNoteCfi(null); }}
               />
