@@ -410,48 +410,43 @@ export default function App() {
           }
           function onLinkClick(e) {
             var anchor = e.target.closest('a');
-            if (!anchor || !anchor.href) return;
-            var href = anchor.getAttribute('href');
-            if (!href) return;
-            // Only handle internal links (anchor-only or relative)
-            var isAnchorOnly = href.startsWith('#');
-            var isRelative = !href.startsWith('http') && !href.startsWith('mailto') && !href.startsWith('//');
+            if (!anchor) return;
+            var attrHref = anchor.getAttribute('href');
+            if (!attrHref) return;
+            // Skip external links
+            var resolvedHref = anchor.href; // fully resolved by browser (blob URL or absolute)
+            if (!resolvedHref || resolvedHref.startsWith('http') && !resolvedHref.startsWith(window.location.origin)) return;
+            var isAnchorOnly = attrHref.startsWith('#');
+            var isRelative = !attrHref.startsWith('http') && !attrHref.startsWith('mailto') && !attrHref.startsWith('//');
             if (!isAnchorOnly && !isRelative) return;
             e.preventDefault();
             e.stopPropagation();
             var iframeRect = iframe.getBoundingClientRect();
             var clickPos = { x: iframeRect.left + e.clientX, y: iframeRect.top + e.clientY };
-            // Resolve fragment and base href
-            var fragment = href.includes('#') ? href.split('#')[1] : null;
-            var hrefBase = href.includes('#') ? href.split('#')[0] : '';
-            // Try same-chapter lookup first
-            if (!hrefBase || isAnchorOnly) {
-              var target = fragment && doc.getElementById(fragment);
+            var fragment = resolvedHref.includes('#') ? resolvedHref.split('#')[1] : null;
+            // Try same-chapter lookup first (fast path)
+            if (fragment) {
+              var target = doc.getElementById(fragment);
               if (target) {
-                setFootnote({ content: sanitizeFootnoteHtml(target.innerHTML), position: clickPos, href: href });
+                setFootnote({ content: sanitizeFootnoteHtml(target.innerHTML), position: clickPos, href: attrHref });
                 return;
               }
             }
-            // Cross-chapter: load spine item
-            var rend = renditionRef.current;
-            if (!rend || !rend.book) return;
-            var currentHref = rend.book.spine.get(rend.location && rend.location.start && rend.location.start.cfi);
-            var resolvedHref = hrefBase || (currentHref && currentHref.href) || '';
-            var section = rend.book.spine.get(resolvedHref);
-            if (!section) {
-              // Fallback: navigate normally
-              goToLocation(href);
-              return;
-            }
-            section.load(rend.book.load.bind(rend.book)).then(function(sectionDoc) {
-              var el = fragment ? sectionDoc.getElementById(fragment) : sectionDoc.body;
-              if (el) {
-                setFootnote({ content: sanitizeFootnoteHtml(el.innerHTML), position: clickPos, href: href });
-              } else {
-                goToLocation(href);
-              }
-              section.unload();
-            }).catch(function() { goToLocation(href); });
+            // Cross-chapter: fetch the resolved blob URL and parse
+            var fetchUrl = resolvedHref.split('#')[0];
+            fetch(fetchUrl)
+              .then(function(r) { return r.text(); })
+              .then(function(html) {
+                var parser = new DOMParser();
+                var parsed = parser.parseFromString(html, 'text/html');
+                var el = fragment ? parsed.getElementById(fragment) : parsed.body;
+                if (el && el.textContent.trim()) {
+                  setFootnote({ content: sanitizeFootnoteHtml(el.innerHTML), position: clickPos, href: attrHref });
+                } else {
+                  goToLocation(attrHref);
+                }
+              })
+              .catch(function() { goToLocation(attrHref); });
           }
           doc.addEventListener('click', onLinkClick, true);
           iframe._footnoteAttachedDoc = doc;
