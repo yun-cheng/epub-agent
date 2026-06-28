@@ -76,25 +76,22 @@ export default function HighlightSidebar({ highlights, onJump, onDelete, onUpdat
             </button>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Filter:</span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {Object.entries(HIGHLIGHT_COLORS).map(([key, hex]) => (
-              <div
-                key={key}
-                title={key}
-                onClick={() => setFilterColor(filterColor === key ? null : key)}
-                style={{
-                  width: 16, height: 16, borderRadius: '50%',
-                  backgroundColor: hex,
-                  cursor: 'pointer',
-                  border: filterColor === key ? '2px solid var(--text-primary)' : '2px solid transparent',
-                  boxSizing: 'border-box',
-                }}
-              />
-            ))}
-          </div>
-        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, padding: '6px 16px 8px' }}>
+        {Object.entries(HIGHLIGHT_COLORS).map(([key, hex]) => (
+          <div
+            key={key}
+            title={key}
+            onClick={() => setFilterColor(filterColor === key ? null : key)}
+            style={{
+              width: 16, height: 16, borderRadius: '50%',
+              backgroundColor: hex,
+              cursor: 'pointer',
+              border: filterColor === key ? '2px solid var(--text-primary)' : '2px solid transparent',
+              boxSizing: 'border-box',
+            }}
+          />
+        ))}
       </div>
       {sorted.map((hl) => (
         <div key={hl.id} className="highlight-item" onClick={() => onJump(hl.cfi)}>
