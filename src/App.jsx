@@ -426,7 +426,7 @@ export default function App() {
             if (fragment) {
               var target = doc.getElementById(fragment);
               if (target) {
-                setFootnote({ content: sanitizeFootnoteHtml(target.innerHTML), position: clickPos, resolvedHref: resolvedHref });
+                setFootnote({ content: sanitizeFootnoteHtml(target.innerHTML), position: clickPos, attrHref: attrHref });
                 return;
               }
             }
@@ -438,12 +438,12 @@ export default function App() {
                 var parsed = parser.parseFromString(html, 'text/html');
                 var el = fragment ? parsed.getElementById(fragment) : parsed.body;
                 if (el && el.textContent.trim()) {
-                  setFootnote({ content: sanitizeFootnoteHtml(el.innerHTML), position: clickPos, resolvedHref: resolvedHref });
+                  setFootnote({ content: sanitizeFootnoteHtml(el.innerHTML), position: clickPos, attrHref: attrHref });
                 } else {
-                  renditionRef.current && renditionRef.current.display(resolvedHref);
+                  jumpToEpubHref(attrHref);
                 }
               })
-              .catch(function() { renditionRef.current && renditionRef.current.display(resolvedHref); });
+              .catch(function() { jumpToEpubHref(attrHref); });
           }
           doc.addEventListener('click', onLinkClick, true);
           iframe._footnoteAttachedDoc = doc;
@@ -478,6 +478,28 @@ export default function App() {
       }
     });
     return div.innerHTML;
+  }
+
+  // Resolve a relative epub href (from an <a> attribute) against the current chapter
+  // and navigate to it via rendition.display().
+  function jumpToEpubHref(attrHref) {
+    var rend = renditionRef.current;
+    if (!rend || !rend.book) return;
+    var fragment = attrHref.includes('#') ? attrHref.split('#')[1] : null;
+    var hrefNoFrag = attrHref.split('#')[0];
+    // Resolve relative path against current chapter's epub directory
+    var curItem = rend.book.spine.get(rend.currentLocation && rend.currentLocation().start.cfi);
+    var curHref = (curItem && curItem.href) || '';
+    var curDir = curHref.substring(0, curHref.lastIndexOf('/') + 1);
+    var epubPath;
+    try {
+      epubPath = new URL(hrefNoFrag, 'http://fake/' + curDir).pathname.slice(1);
+    } catch (e) {
+      epubPath = curDir + hrefNoFrag;
+    }
+    var spineItem = hrefNoFrag ? rend.book.spine.get(epubPath) : null;
+    var target = spineItem ? (spineItem.href + (fragment ? '#' + fragment : '')) : attrHref;
+    rend.display(target);
   }
 
   // On mount: restore from hash (deep link to book+chapter)
@@ -929,8 +951,9 @@ export default function App() {
         'img { opacity: 0.8; }',
         'body, p, div, li { line-height: ' + lineSpacing + ' !important; }',
         '* { font-size: ' + fontSize + 'px !important; font-family: ' + fontFamily + ' !important; }',
-        // Internal links (footnotes, cross-refs)
-        'a[href]:not([href^="http"]):not([href^="mailto"]):not([href^="//"]) { color: #f0a500 !important; border-bottom: 1px dotted #f0a500 !important; cursor: pointer !important; }',
+        // Internal links — color the link and force children to inherit it
+        'a[href]:not([href^="http"]):not([href^="mailto"]):not([href^="//"]) { color: #f0a500 !important; cursor: pointer !important; }',
+        'a[href]:not([href^="http"]):not([href^="mailto"]):not([href^="//"]) * { color: inherit !important; }',
       ].join('\n');
       doc.head.appendChild(style);
     } catch (e) {
@@ -1959,21 +1982,7 @@ export default function App() {
           content={footnote.content}
           position={footnote.position}
           onClose={function() { setFootnote(null); }}
-          onJump={function() {
-            var rend = renditionRef.current;
-            if (!rend) return;
-            var blobUrl = footnote.resolvedHref;
-            var fragment = blobUrl.includes('#') ? blobUrl.split('#')[1] : null;
-            var blobPath = blobUrl.split('#')[0];
-            // Find spine item whose href appears at the end of the blob URL path
-            var items = rend.book && rend.book.spine && rend.book.spine.items;
-            var match = items && items.find(function(item) {
-              return item.href && blobPath.endsWith(item.href);
-            });
-            var target = match ? (match.href + (fragment ? '#' + fragment : '')) : blobUrl;
-            rend.display(target);
-            setFootnote(null);
-          }}
+          onJump={function() { jumpToEpubHref(footnote.attrHref); setFootnote(null); }}
         />
       )}
     </div>
