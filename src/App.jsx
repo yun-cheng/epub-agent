@@ -106,7 +106,7 @@ const FONT_FAMILIES = [
 const LINE_SPACINGS = [1, 1.2, 1.5, 1.75, 2];
 
 const DARK_THEME_CSS = [
-  'body { background: #1a1a1a !important; color: #d4d4d4 !important; padding-top: 30px !important; padding-bottom: 60px !important; }',
+  'body { background: #1a1a1a !important; color: #d4d4d4 !important; padding-top: 60px !important; padding-bottom: 60px !important; }',
   '* { background-color: transparent !important; }',
   'p, div, span, li, h1, h2, h3, h4, h5, h6, a { color: #d4d4d4 !important; }',
   'a { color: #6c8cff !important; }',
@@ -829,7 +829,7 @@ export default function App() {
       var style = doc.createElement('style');
       style.id = 'hermes-reader-theme';
       style.textContent = [
-        'body { background: #1a1a1a !important; color: #d4d4d4 !important; padding-top: 30px !important; padding-bottom: 60px !important; }',
+        'body { background: #1a1a1a !important; color: #d4d4d4 !important; padding-top: 60px !important; padding-bottom: 60px !important; }',
         '* { background-color: transparent !important; }',
         'p, div, span, li, h1, h2, h3, h4, h5, h6 { color: #d4d4d4 !important; }',
         'a { color: #6c8cff !important; }',
