@@ -487,18 +487,19 @@ export default function App() {
     if (!rend || !rend.book) return;
     var fragment = attrHref.includes('#') ? attrHref.split('#')[1] : null;
     var hrefNoFrag = attrHref.split('#')[0];
-    // Resolve relative path against current chapter's epub directory
-    var curItem = rend.book.spine.get(rend.currentLocation && rend.currentLocation().start.cfi);
-    var curHref = (curItem && curItem.href) || '';
-    var curDir = curHref.substring(0, curHref.lastIndexOf('/') + 1);
-    var epubPath;
-    try {
-      epubPath = new URL(hrefNoFrag, 'http://fake/' + curDir).pathname.slice(1);
-    } catch (e) {
-      epubPath = curDir + hrefNoFrag;
+    // spine.get() silently returns item[0] on miss, so we do our own search.
+    // Try progressively shorter suffixes of the path so we match regardless of
+    // whether item.href includes the directory prefix or not.
+    var items = rend.book.spine.items;
+    var parts = hrefNoFrag ? hrefNoFrag.split('/') : [];
+    var match = null;
+    for (var len = parts.length; len >= 1 && !match; len--) {
+      var suffix = parts.slice(parts.length - len).join('/');
+      match = items.find(function(item) { return item.href === suffix; });
     }
-    var spineItem = hrefNoFrag ? rend.book.spine.get(epubPath) : null;
-    var target = spineItem ? (spineItem.href + (fragment ? '#' + fragment : '')) : attrHref;
+    var target = match
+      ? (match.href + (fragment ? '#' + fragment : ''))
+      : attrHref;
     rend.display(target);
   }
 
@@ -952,7 +953,7 @@ export default function App() {
         'body, p, div, li { line-height: ' + lineSpacing + ' !important; }',
         '* { font-size: ' + fontSize + 'px !important; font-family: ' + fontFamily + ' !important; }',
         // Internal links — color the link and force children to inherit it
-        'a[href]:not([href^="http"]):not([href^="mailto"]):not([href^="//"]) { color: #f0a500 !important; cursor: pointer !important; }',
+        'a[href]:not([href^="http"]):not([href^="mailto"]):not([href^="//"]) { color: #c084fc !important; cursor: pointer !important; }',
         'a[href]:not([href^="http"]):not([href^="mailto"]):not([href^="//"]) * { color: inherit !important; }',
       ].join('\n');
       doc.head.appendChild(style);
