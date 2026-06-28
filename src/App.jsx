@@ -87,10 +87,10 @@ function setLibraryPath() {
 
 const HIGHLIGHT_COLORS = {
   yellow: '#fff3a8',
-  green: '#a8e6a8',
-  blue: '#a8d8ff',
-  pink: '#ffb3d9',
-  orange: '#ffcc80',
+  red:    '#ffb3b3',
+  blue:   '#a8d8ff',
+  green:  '#a8e6a8',
+  purple: '#d4b3ff',
 };
 
 const FONT_FAMILIES = [

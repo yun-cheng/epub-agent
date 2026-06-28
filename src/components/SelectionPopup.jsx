@@ -3,10 +3,10 @@ import { computePosition, flip, shift, offset } from '@floating-ui/dom';
 
 var COLORS = [
   { key: 'yellow', hex: '#fff3a8', label: 'Yellow' },
-  { key: 'green', hex: '#a8e6a8', label: 'Green' },
-  { key: 'blue', hex: '#a8d8ff', label: 'Blue' },
-  { key: 'pink', hex: '#ffb3d9', label: 'Pink' },
-  { key: 'orange', hex: '#ffcc80', label: 'Orange' },
+  { key: 'red',    hex: '#ffb3b3', label: 'Red' },
+  { key: 'blue',   hex: '#a8d8ff', label: 'Blue' },
+  { key: 'green',  hex: '#a8e6a8', label: 'Green' },
+  { key: 'purple', hex: '#d4b3ff', label: 'Purple' },
 ];
 
 export default function SelectionPopup({ selection, onHighlight, onNote, onDelete, onClose }) {

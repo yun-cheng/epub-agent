@@ -2,10 +2,10 @@ import { useState } from 'react';
 
 const COLORS = [
   { key: 'yellow', hex: '#fff3a8' },
-  { key: 'green',  hex: '#a8e6a8' },
+  { key: 'red',    hex: '#ffb3b3' },
   { key: 'blue',   hex: '#a8d8ff' },
-  { key: 'pink',   hex: '#ffb3d9' },
-  { key: 'orange', hex: '#ffcc80' },
+  { key: 'green',  hex: '#a8e6a8' },
+  { key: 'purple', hex: '#d4b3ff' },
 ];
 
 export default function NoteEditor({ cfi, highlights, selectionText, onSave, onClose }) {
