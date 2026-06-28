@@ -27,12 +27,10 @@ export default function FootnotePopup({ content, position, onClose, onJump }) {
     <div className="footnote-backdrop" onClick={onClose}>
       <div ref={popupRef} className="footnote-popup" onClick={function(e) { e.stopPropagation(); }}>
         <div className="footnote-popup-header">
-          <div style={{ display: 'flex', gap: 4 }}>
-            {onJump && (
-              <button className="btn-icon" title="Go to location" onClick={onJump} style={{ fontSize: 12 }}>↗</button>
-            )}
-            <button className="btn-icon" title="Close" onClick={onClose} style={{ fontSize: 14 }}>✕</button>
-          </div>
+          {onJump && (
+            <button className="btn-icon" title="Go to location" onClick={onJump} style={{ fontSize: 12 }}>↗</button>
+          )}
+          <button className="btn-icon" title="Close" onClick={onClose} style={{ fontSize: 14, marginLeft: 'auto' }}>✕</button>
         </div>
         <div
           className="footnote-popup-body"

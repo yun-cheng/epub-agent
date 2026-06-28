@@ -408,13 +408,6 @@ export default function App() {
           if (iframe._footnoteAttachedFn && iframe._footnoteAttachedDoc) {
             try { iframe._footnoteAttachedDoc.removeEventListener('click', iframe._footnoteAttachedFn, true); } catch (e) {}
           }
-          // Mark internal links with a class so CSS can style them
-          doc.querySelectorAll('a[href]').forEach(function(a) {
-            var h = a.getAttribute('href');
-            if (h && !h.startsWith('http') && !h.startsWith('mailto') && !h.startsWith('//')) {
-              a.classList.add('epub-internal-link');
-            }
-          });
           function onLinkClick(e) {
             var anchor = e.target.closest('a');
             if (!anchor) return;
@@ -480,7 +473,7 @@ export default function App() {
     div.innerHTML = cleaned;
     div.querySelectorAll('a').forEach(function(a) {
       var text = a.textContent.trim();
-      if (/^[↩↑⬆▲†*]$/.test(text) || /back/i.test(text) || /return/i.test(text)) {
+      if (/^[\d↩↑⬆▲†*\s]+$/.test(text) || /back/i.test(text) || /return/i.test(text)) {
         a.remove();
       }
     });
@@ -936,8 +929,8 @@ export default function App() {
         'img { opacity: 0.8; }',
         'body, p, div, li { line-height: ' + lineSpacing + ' !important; }',
         '* { font-size: ' + fontSize + 'px !important; font-family: ' + fontFamily + ' !important; }',
-        // Internal links (footnotes, cross-refs) — class added by our JS handler
-        '.epub-internal-link { color: #f0a500 !important; border-bottom: 1px dotted #f0a500 !important; cursor: pointer !important; }',
+        // Internal links (footnotes, cross-refs)
+        'a[href]:not([href^="http"]):not([href^="mailto"]):not([href^="//"]) { color: #f0a500 !important; border-bottom: 1px dotted #f0a500 !important; cursor: pointer !important; }',
       ].join('\n');
       doc.head.appendChild(style);
     } catch (e) {
@@ -1966,7 +1959,21 @@ export default function App() {
           content={footnote.content}
           position={footnote.position}
           onClose={function() { setFootnote(null); }}
-          onJump={function() { renditionRef.current && renditionRef.current.display(footnote.resolvedHref); setFootnote(null); }}
+          onJump={function() {
+            var rend = renditionRef.current;
+            if (!rend) return;
+            var blobUrl = footnote.resolvedHref;
+            var fragment = blobUrl.includes('#') ? blobUrl.split('#')[1] : null;
+            var blobPath = blobUrl.split('#')[0];
+            // Find spine item whose href appears at the end of the blob URL path
+            var items = rend.book && rend.book.spine && rend.book.spine.items;
+            var match = items && items.find(function(item) {
+              return item.href && blobPath.endsWith(item.href);
+            });
+            var target = match ? (match.href + (fragment ? '#' + fragment : '')) : blobUrl;
+            rend.display(target);
+            setFootnote(null);
+          }}
         />
       )}
     </div>
