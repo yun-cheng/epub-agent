@@ -56,42 +56,39 @@ export default function HighlightSidebar({ highlights, onJump, onDelete, onUpdat
 
   return (
     <div className="sidebar-content">
-      <div className="highlight-export-bar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Sort:</span>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button
-              className={'btn btn-sm' + (sortMode === 'position' ? ' active' : '')}
-              title="Sort by position in book"
-              onClick={() => handleSort('position')}
-            >
-              Book {sortMode === 'position' ? (sortAsc.position ? '↑' : '↓') : ''}
-            </button>
-            <button
-              className={'btn btn-sm' + (sortMode === 'time' ? ' active' : '')}
-              title="Sort by date added"
-              onClick={() => handleSort('time')}
-            >
-              Created {sortMode === 'time' ? (sortAsc.time ? '↑' : '↓') : ''}
-            </button>
-          </div>
+      <div className="highlight-export-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {Object.entries(HIGHLIGHT_COLORS).map(([key, hex]) => (
+            <div
+              key={key}
+              title={key}
+              onClick={() => setFilterColor(filterColor === key ? null : key)}
+              style={{
+                width: 16, height: 16, borderRadius: '50%',
+                backgroundColor: hex,
+                cursor: 'pointer',
+                border: filterColor === key ? '2px solid var(--text-primary)' : '2px solid transparent',
+                boxSizing: 'border-box',
+              }}
+            />
+          ))}
         </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8, padding: '6px 16px 8px' }}>
-        {Object.entries(HIGHLIGHT_COLORS).map(([key, hex]) => (
-          <div
-            key={key}
-            title={key}
-            onClick={() => setFilterColor(filterColor === key ? null : key)}
-            style={{
-              width: 16, height: 16, borderRadius: '50%',
-              backgroundColor: hex,
-              cursor: 'pointer',
-              border: filterColor === key ? '2px solid var(--text-primary)' : '2px solid transparent',
-              boxSizing: 'border-box',
-            }}
-          />
-        ))}
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button
+            className={'btn btn-sm' + (sortMode === 'position' ? ' active' : '')}
+            title="Sort by position in book"
+            onClick={() => handleSort('position')}
+          >
+            Book {sortMode === 'position' ? (sortAsc.position ? '↑' : '↓') : ''}
+          </button>
+          <button
+            className={'btn btn-sm' + (sortMode === 'time' ? ' active' : '')}
+            title="Sort by date added"
+            onClick={() => handleSort('time')}
+          >
+            Created {sortMode === 'time' ? (sortAsc.time ? '↑' : '↓') : ''}
+          </button>
+        </div>
       </div>
       {sorted.map((hl) => (
         <div key={hl.id} className="highlight-item" onClick={() => onJump(hl.cfi)}>
