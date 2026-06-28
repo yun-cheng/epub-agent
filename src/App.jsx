@@ -9,6 +9,7 @@ import BookmarkSidebar from './components/BookmarkSidebar';
 import SearchPanel from './components/SearchPanel';
 import SelectionPopup from './components/SelectionPopup';
 import NoteEditor from './components/NoteEditor';
+import FootnotePopup from './components/FootnotePopup';
 import BottomBar from './components/BottomBar';
 import LibraryPage from './components/LibraryPage';
 import { exportAs } from './utils/exportHighlights';
@@ -185,6 +186,9 @@ export default function App() {
   var _imgMenu = useState(null); // { x, y, img }
   var imgMenu = _imgMenu[0];
   var setImgMenu = _imgMenu[1];
+  var _footnote = useState(null); // { content, position, href }
+  var footnote = _footnote[0];
+  var setFootnote = _footnote[1];
 
 
   var _leftSidebar = useLocalStorage('nr_leftSidebar', 'none');
@@ -389,6 +393,83 @@ export default function App() {
       });
     };
   }, []);
+
+  // Footnote link interception — intercept internal <a> clicks, show popup instead of navigating
+  useEffect(function() {
+    var attached = [];
+    function attachFootnoteHandlers() {
+      var iframes = document.querySelectorAll('.epub-container iframe');
+      iframes.forEach(function(iframe) {
+        if (iframe._footnoteAttached) return;
+        try {
+          var doc = iframe.contentDocument;
+          if (!doc || !doc.body) return;
+          function onLinkClick(e) {
+            var anchor = e.target.closest('a');
+            if (!anchor || !anchor.href) return;
+            var href = anchor.getAttribute('href');
+            if (!href) return;
+            // Only handle internal links (anchor-only or relative)
+            var isAnchorOnly = href.startsWith('#');
+            var isRelative = !href.startsWith('http') && !href.startsWith('mailto') && !href.startsWith('//');
+            if (!isAnchorOnly && !isRelative) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var iframeRect = iframe.getBoundingClientRect();
+            var clickPos = { x: iframeRect.left + e.clientX, y: iframeRect.top + e.clientY };
+            // Resolve fragment and base href
+            var fragment = href.includes('#') ? href.split('#')[1] : null;
+            var hrefBase = href.includes('#') ? href.split('#')[0] : '';
+            // Try same-chapter lookup first
+            if (!hrefBase || isAnchorOnly) {
+              var target = fragment && doc.getElementById(fragment);
+              if (target) {
+                setFootnote({ content: sanitizeFootnoteHtml(target.innerHTML), position: clickPos, href: href });
+                return;
+              }
+            }
+            // Cross-chapter: load spine item
+            var rend = renditionRef.current;
+            if (!rend || !rend.book) return;
+            var currentHref = rend.book.spine.get(rend.location && rend.location.start && rend.location.start.cfi);
+            var resolvedHref = hrefBase || (currentHref && currentHref.href) || '';
+            var section = rend.book.spine.get(resolvedHref);
+            if (!section) {
+              // Fallback: navigate normally
+              goToLocation(href);
+              return;
+            }
+            section.load(rend.book.load.bind(rend.book)).then(function(sectionDoc) {
+              var el = fragment ? sectionDoc.getElementById(fragment) : sectionDoc.body;
+              if (el) {
+                setFootnote({ content: sanitizeFootnoteHtml(el.innerHTML), position: clickPos, href: href });
+              } else {
+                goToLocation(href);
+              }
+              section.unload();
+            }).catch(function() { goToLocation(href); });
+          }
+          doc.addEventListener('click', onLinkClick, true);
+          iframe._footnoteAttached = true;
+          attached.push({ doc: doc, fn: onLinkClick, iframe: iframe });
+        } catch (e) {}
+      });
+    }
+    attachFootnoteHandlers();
+    var interval = setInterval(attachFootnoteHandlers, 500);
+    return function() {
+      clearInterval(interval);
+      attached.forEach(function(item) {
+        try { item.doc.removeEventListener('click', item.fn, true); } catch (e) {}
+        delete item.iframe._footnoteAttached;
+      });
+    };
+  }, []);
+
+  function sanitizeFootnoteHtml(html) {
+    // Strip scripts, keep text and basic formatting
+    return (html || '').replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '');
+  }
 
   // On mount: restore from hash (deep link to book+chapter)
   useEffect(function() {
@@ -1862,6 +1943,14 @@ export default function App() {
         {renderRightSidebar()}
       </div>
       {toast ? <div className="toast">{toast}</div> : null}
+      {footnote && (
+        <FootnotePopup
+          content={footnote.content}
+          position={footnote.position}
+          onClose={function() { setFootnote(null); }}
+          onJump={function() { goToLocation(footnote.href); setFootnote(null); }}
+        />
+      )}
     </div>
   );
 }
