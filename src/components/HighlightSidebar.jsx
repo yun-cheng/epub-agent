@@ -69,6 +69,9 @@ export default function HighlightSidebar({ highlights, onJump, onDelete, onUpdat
                 cursor: 'pointer',
                 border: filterColor === key ? '2px solid var(--text-primary)' : '2px solid transparent',
                 boxSizing: 'border-box',
+                opacity: filterColor && filterColor !== key ? 0.3 : 1,
+                transform: filterColor === key ? 'scale(1.2)' : 'scale(1)',
+                transition: 'opacity 0.15s, transform 0.15s',
               }}
             />
           ))}
