@@ -44,25 +44,22 @@ export default function BookmarkSidebar({ bookmarks, onJump, onDelete }) {
 
   return (
     <div className="sidebar-content">
-      <div className="highlight-export-bar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Sort:</span>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button
-              className={'btn btn-sm' + (sortMode === 'position' ? ' active' : '')}
-              title="Sort by position in book"
-              onClick={() => handleSort('position')}
-            >
-              Book {sortMode === 'position' ? (sortAsc.position ? '↑' : '↓') : ''}
-            </button>
-            <button
-              className={'btn btn-sm' + (sortMode === 'time' ? ' active' : '')}
-              title="Sort by date added"
-              onClick={() => handleSort('time')}
-            >
-              Created {sortMode === 'time' ? (sortAsc.time ? '↑' : '↓') : ''}
-            </button>
-          </div>
+      <div className="highlight-export-bar" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button
+            className={'btn btn-sm' + (sortMode === 'position' ? ' active' : '')}
+            title="Sort by position in book"
+            onClick={() => handleSort('position')}
+          >
+            Book {sortMode === 'position' ? (sortAsc.position ? '↑' : '↓') : ''}
+          </button>
+          <button
+            className={'btn btn-sm' + (sortMode === 'time' ? ' active' : '')}
+            title="Sort by date added"
+            onClick={() => handleSort('time')}
+          >
+            Created {sortMode === 'time' ? (sortAsc.time ? '↑' : '↓') : ''}
+          </button>
         </div>
       </div>
       {sorted.map((bm) => (
