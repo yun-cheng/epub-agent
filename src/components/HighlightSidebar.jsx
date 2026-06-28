@@ -24,6 +24,7 @@ export default function HighlightSidebar({ highlights, onJump, onDelete, onUpdat
   const [noteText, setNoteText] = useState('');
   const [sortMode, setSortMode] = useState('position');
   const [sortAsc, setSortAsc] = useState({ position: true, time: true });
+  const [filterColor, setFilterColor] = useState(null);
 
   function handleSort(mode) {
     if (sortMode === mode) {
@@ -45,7 +46,8 @@ export default function HighlightSidebar({ highlights, onJump, onDelete, onUpdat
 
   const cfiCompare = new EpubCFI();
   const asc = sortAsc[sortMode];
-  const sorted = [...highlights].sort((a, b) => {
+  const filtered = filterColor ? highlights.filter(h => h.color === filterColor) : highlights;
+  const sorted = [...filtered].sort((a, b) => {
     let cmp;
     if (sortMode === 'time') cmp = new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
     else { try { cmp = cfiCompare.compare(a.cfi, b.cfi); } catch (e) { cmp = 0; } }
@@ -72,6 +74,25 @@ export default function HighlightSidebar({ highlights, onJump, onDelete, onUpdat
             >
               Date added {sortMode === 'time' ? (sortAsc.time ? '↑' : '↓') : ''}
             </button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Filter:</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {Object.entries(HIGHLIGHT_COLORS).map(([key, hex]) => (
+              <div
+                key={key}
+                title={key}
+                onClick={() => setFilterColor(filterColor === key ? null : key)}
+                style={{
+                  width: 16, height: 16, borderRadius: '50%',
+                  backgroundColor: hex,
+                  cursor: 'pointer',
+                  border: filterColor === key ? '2px solid var(--text-primary)' : '2px solid transparent',
+                  boxSizing: 'border-box',
+                }}
+              />
+            ))}
           </div>
         </div>
       </div>
