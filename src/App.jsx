@@ -408,32 +408,36 @@ export default function App() {
           if (iframe._footnoteAttachedFn && iframe._footnoteAttachedDoc) {
             try { iframe._footnoteAttachedDoc.removeEventListener('click', iframe._footnoteAttachedFn, true); } catch (e) {}
           }
+          // Mark internal links with a class so CSS can style them
+          doc.querySelectorAll('a[href]').forEach(function(a) {
+            var h = a.getAttribute('href');
+            if (h && !h.startsWith('http') && !h.startsWith('mailto') && !h.startsWith('//')) {
+              a.classList.add('epub-internal-link');
+            }
+          });
           function onLinkClick(e) {
             var anchor = e.target.closest('a');
             if (!anchor) return;
             var attrHref = anchor.getAttribute('href');
             if (!attrHref) return;
-            // Skip external links
-            var resolvedHref = anchor.href; // fully resolved by browser (blob URL or absolute)
-            if (!resolvedHref || resolvedHref.startsWith('http') && !resolvedHref.startsWith(window.location.origin)) return;
-            var isAnchorOnly = attrHref.startsWith('#');
+            var resolvedHref = anchor.href; // fully resolved blob URL
             var isRelative = !attrHref.startsWith('http') && !attrHref.startsWith('mailto') && !attrHref.startsWith('//');
-            if (!isAnchorOnly && !isRelative) return;
+            if (!isRelative) return;
             e.preventDefault();
             e.stopPropagation();
             var iframeRect = iframe.getBoundingClientRect();
             var clickPos = { x: iframeRect.left + e.clientX, y: iframeRect.top + e.clientY };
             var fragment = resolvedHref.includes('#') ? resolvedHref.split('#')[1] : null;
-            // Try same-chapter lookup first (fast path)
+            var fetchUrl = resolvedHref.split('#')[0];
+            // Same-chapter fast path
             if (fragment) {
               var target = doc.getElementById(fragment);
               if (target) {
-                setFootnote({ content: sanitizeFootnoteHtml(target.innerHTML), position: clickPos, href: attrHref });
+                setFootnote({ content: sanitizeFootnoteHtml(target.innerHTML), position: clickPos, resolvedHref: resolvedHref });
                 return;
               }
             }
-            // Cross-chapter: fetch the resolved blob URL and parse
-            var fetchUrl = resolvedHref.split('#')[0];
+            // Cross-chapter: fetch blob URL and parse
             fetch(fetchUrl)
               .then(function(r) { return r.text(); })
               .then(function(html) {
@@ -441,12 +445,12 @@ export default function App() {
                 var parsed = parser.parseFromString(html, 'text/html');
                 var el = fragment ? parsed.getElementById(fragment) : parsed.body;
                 if (el && el.textContent.trim()) {
-                  setFootnote({ content: sanitizeFootnoteHtml(el.innerHTML), position: clickPos, href: attrHref });
+                  setFootnote({ content: sanitizeFootnoteHtml(el.innerHTML), position: clickPos, resolvedHref: resolvedHref });
                 } else {
-                  goToLocation(attrHref);
+                  renditionRef.current && renditionRef.current.display(resolvedHref);
                 }
               })
-              .catch(function() { goToLocation(attrHref); });
+              .catch(function() { renditionRef.current && renditionRef.current.display(resolvedHref); });
           }
           doc.addEventListener('click', onLinkClick, true);
           iframe._footnoteAttachedDoc = doc;
@@ -468,8 +472,19 @@ export default function App() {
   }, []);
 
   function sanitizeFootnoteHtml(html) {
-    // Strip scripts, keep text and basic formatting
-    return (html || '').replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '');
+    var cleaned = (html || '')
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '');
+    // Strip back-reference links (↩ ↑ [back] etc.)
+    var div = document.createElement('div');
+    div.innerHTML = cleaned;
+    div.querySelectorAll('a').forEach(function(a) {
+      var text = a.textContent.trim();
+      if (/^[↩↑⬆▲†*]$/.test(text) || /back/i.test(text) || /return/i.test(text)) {
+        a.remove();
+      }
+    });
+    return div.innerHTML;
   }
 
   // On mount: restore from hash (deep link to book+chapter)
@@ -921,10 +936,8 @@ export default function App() {
         'img { opacity: 0.8; }',
         'body, p, div, li { line-height: ' + lineSpacing + ' !important; }',
         '* { font-size: ' + fontSize + 'px !important; font-family: ' + fontFamily + ' !important; }',
-        // Footnote / noteref links
-        'a[epub\\:type="noteref"], a.noteref, sup a, a[href^="#fn"], a[href^="#note"], a[href^="#endnote"] {',
-        '  color: #f0a500 !important; font-size: 0.75em !important; vertical-align: super;',
-        '  border-bottom: 1px dotted #f0a500 !important; cursor: pointer !important; }',
+        // Internal links (footnotes, cross-refs) — class added by our JS handler
+        '.epub-internal-link { color: #f0a500 !important; border-bottom: 1px dotted #f0a500 !important; cursor: pointer !important; }',
       ].join('\n');
       doc.head.appendChild(style);
     } catch (e) {
@@ -1953,7 +1966,7 @@ export default function App() {
           content={footnote.content}
           position={footnote.position}
           onClose={function() { setFootnote(null); }}
-          onJump={function() { goToLocation(footnote.href); setFootnote(null); }}
+          onJump={function() { renditionRef.current && renditionRef.current.display(footnote.resolvedHref); setFootnote(null); }}
         />
       )}
     </div>

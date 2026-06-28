@@ -3,7 +3,6 @@ import { useEffect, useRef } from 'react';
 export default function FootnotePopup({ content, position, onClose, onJump }) {
   var popupRef = useRef(null);
 
-  // Position popup near click, keeping it within viewport
   useEffect(function() {
     var el = popupRef.current;
     if (!el || !position) return;
@@ -18,7 +17,6 @@ export default function FootnotePopup({ content, position, onClose, onJump }) {
     el.style.top = Math.max(12, y) + 'px';
   }, [position, content]);
 
-  // Dismiss on Escape
   useEffect(function() {
     function onKey(e) { if (e.key === 'Escape') onClose(); }
     window.addEventListener('keydown', onKey);
@@ -29,7 +27,6 @@ export default function FootnotePopup({ content, position, onClose, onJump }) {
     <div className="footnote-backdrop" onClick={onClose}>
       <div ref={popupRef} className="footnote-popup" onClick={function(e) { e.stopPropagation(); }}>
         <div className="footnote-popup-header">
-          <span className="footnote-popup-label">Note</span>
           <div style={{ display: 'flex', gap: 4 }}>
             {onJump && (
               <button className="btn-icon" title="Go to location" onClick={onJump} style={{ fontSize: 12 }}>↗</button>
