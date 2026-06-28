@@ -173,6 +173,16 @@ export default function App() {
   var _laserPos = useState({ x: 0, y: 0 });
   var laserPos = _laserPos[0];
   var setLaserPos = _laserPos[1];
+  var _lightboxSrc = useState(null);
+  var lightboxSrc = _lightboxSrc[0];
+  var setLightboxSrc = _lightboxSrc[1];
+  var _lightboxZoom = useState(1);
+  var lightboxZoom = _lightboxZoom[0];
+  var setLightboxZoom = _lightboxZoom[1];
+  var lightboxPinchRef = useRef(null);
+  var _imgMenu = useState(null); // { x, y, img }
+  var imgMenu = _imgMenu[0];
+  var setImgMenu = _imgMenu[1];
 
 
   var _leftSidebar = useLocalStorage('nr_leftSidebar', 'none');
@@ -302,6 +312,79 @@ export default function App() {
       });
     };
   }, [laserMode]);
+
+  // Image right-click → custom context menu
+  useEffect(function() {
+    var attached = [];
+    function attachImageHandlers() {
+      var iframes = document.querySelectorAll('.epub-container iframe');
+      iframes.forEach(function(iframe) {
+        if (iframe._imgContextAttached) return;
+        try {
+          var doc = iframe.contentDocument;
+          if (!doc) return;
+          function onContextMenu(e) {
+            if (e.target.tagName !== 'IMG') return;
+            e.preventDefault();
+            var iframeRect = iframe.getBoundingClientRect();
+            setImgMenu({ x: iframeRect.left + e.clientX, y: iframeRect.top + e.clientY, img: e.target });
+          }
+          doc.addEventListener('contextmenu', onContextMenu);
+          iframe._imgContextAttached = true;
+          attached.push({ doc: doc, fn: onContextMenu, iframe: iframe });
+        } catch (e) {}
+      });
+    }
+    attachImageHandlers();
+    var interval = setInterval(attachImageHandlers, 500);
+    return function() {
+      clearInterval(interval);
+      attached.forEach(function(item) {
+        try { item.doc.removeEventListener('contextmenu', item.fn); } catch (e) {}
+        delete item.iframe._imgContextAttached;
+      });
+    };
+  }, []);
+
+  // Image click → lightbox
+  useEffect(function() {
+    var attached = [];
+    function attachLightboxHandlers() {
+      var iframes = document.querySelectorAll('.epub-container iframe');
+      iframes.forEach(function(iframe) {
+        if (iframe._imgLightboxAttached) return;
+        try {
+          var doc = iframe.contentDocument;
+          if (!doc) return;
+          function onImgClick(e) {
+            if (e.target.tagName === 'IMG') {
+              setLightboxSrc(e.target.src);
+              setLightboxZoom(1);
+            }
+          }
+          // cursor: pointer on images
+          var style = doc.createElement('style');
+          style.id = 'lightbox-cursor';
+          style.textContent = 'img { cursor: zoom-in !important; }';
+          doc.head.appendChild(style);
+          doc.addEventListener('click', onImgClick);
+          iframe._imgLightboxAttached = true;
+          attached.push({ doc: doc, fn: onImgClick, iframe: iframe });
+        } catch (e) {}
+      });
+    }
+    attachLightboxHandlers();
+    var interval = setInterval(attachLightboxHandlers, 500);
+    return function() {
+      clearInterval(interval);
+      attached.forEach(function(item) {
+        try { item.doc.removeEventListener('click', item.fn); } catch (e) {}
+        try { var s = item.doc.getElementById('lightbox-cursor'); if (s) s.remove(); } catch (e) {}
+        delete item.iframe._imgLightboxAttached;
+      });
+    };
+  }, []);
+
   // On mount: restore from hash (deep link to book+chapter)
   useEffect(function() {
     var parsed = parseAppPath();
@@ -918,6 +1001,12 @@ export default function App() {
   }, [selection]);
 
   useKeyboardNav({ isLoaded, onNext: goNext, onPrev: goPrev, onNextChapter: goNextChapter, onPrevChapter: goPrevChapter });
+
+  useEffect(function() {
+    function onKey(e) { if (e.key === 'Escape') setLightboxSrc(null); }
+    window.addEventListener('keydown', onKey);
+    return function() { window.removeEventListener('keydown', onKey); };
+  }, []);
 
   function handleHighlightClick(cfi, id, e) {
     // Don't override if user currently has text selected
@@ -1634,6 +1723,90 @@ export default function App() {
           pointerEvents: 'none',
           zIndex: 99999,
         }} />
+      )}
+      {imgMenu && (
+        <div className="img-ctx-backdrop" onClick={function() { setImgMenu(null); }}>
+          <div
+            className="img-ctx-menu"
+            style={{ left: imgMenu.x, top: imgMenu.y }}
+            onClick={function(e) { e.stopPropagation(); }}
+          >
+            <button className="img-ctx-item" onClick={function() {
+              setImgMenu(null);
+              var img = imgMenu.img;
+              var canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              canvas.getContext('2d').drawImage(img, 0, 0);
+              canvas.toBlob(function(blob) {
+                if (!blob) return;
+                try {
+                  navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                  showToast('Image copied');
+                } catch (e) {}
+              }, 'image/png');
+            }}>Copy</button>
+            <button className="img-ctx-item" onClick={function() {
+              setImgMenu(null);
+              var img = imgMenu.img;
+              var canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              canvas.getContext('2d').drawImage(img, 0, 0);
+              canvas.toBlob(function(blob) {
+                if (!blob) return;
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                var name = img.src.split('/').pop().split('?')[0] || 'image';
+                a.download = name.match(/\.(png|jpe?g|gif|webp)$/i) ? name : name + '.png';
+                a.click();
+                URL.revokeObjectURL(url);
+              }, 'image/png');
+            }}>Save as file</button>
+          </div>
+        </div>
+      )}
+      {lightboxSrc && (
+        <div
+          className="lightbox-backdrop"
+          onClick={function() { setLightboxSrc(null); }}
+          onWheel={function(e) {
+            e.preventDefault();
+            setLightboxZoom(function(z) { return Math.min(10, Math.max(0.2, z * (e.deltaY < 0 ? 1.1 : 0.9))); });
+          }}
+          onTouchStart={function(e) {
+            if (e.touches.length === 2) {
+              lightboxPinchRef.current = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+              );
+            }
+          }}
+          onTouchMove={function(e) {
+            if (e.touches.length === 2 && lightboxPinchRef.current != null) {
+              var dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+              );
+              var ratio = dist / lightboxPinchRef.current;
+              lightboxPinchRef.current = dist;
+              setLightboxZoom(function(z) { return Math.min(10, Math.max(0.2, z * ratio)); });
+            }
+          }}
+        >
+          <button
+            className="lightbox-close"
+            onClick={function(e) { e.stopPropagation(); setLightboxSrc(null); }}
+          >✕</button>
+          <img
+            src={lightboxSrc}
+            className="lightbox-img"
+            style={{ transform: 'scale(' + lightboxZoom + ')' }}
+            onClick={function(e) { e.stopPropagation(); }}
+            alt=""
+          />
+        </div>
       )}
       {renderToolbar()}
       <div className="main-area">
